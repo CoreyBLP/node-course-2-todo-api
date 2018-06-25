@@ -1,7 +1,7 @@
-var {ObjectID} = require ('mongodb');
-
-var express = require('express');
-var bodyParser = require('body-parser');
+const _ = require('lodash');
+const {ObjectID} = require ('mongodb');
+const express = require('express');
+const bodyParser = require('body-parser');
 
 var {mongoose} = require('./db/mongoose.js');
 var {Todo} = require('./models/todo.js');
@@ -67,9 +67,9 @@ app.delete('/todos/:id',(req,res)=>{
 		Todo.findByIdAndRemove(id).then((todo)=>{
 			//console.log(todo);
 			if(!todo){
-				res.status(404).send();
+				return res.status(404).send();
 			}
-			res.status(200).send({todo});
+			res.status(200).send(todo);
 		},(err)=>{
 			res.status(400).send();
 		});
@@ -77,6 +77,36 @@ app.delete('/todos/:id',(req,res)=>{
 		res.status(404).send();
 	}
 });
+
+app.patch('/todos/:id',(req,res)=>{
+	//get the id
+	var id = req.params.id;
+	//peels off text and completed from the body of the request. This makes sure we ONLY look at these two properties and prevents users from sending whatever property updates they want
+	var body = _.pick(req.body,['text','completed']);
+
+	if(!ObjectID.isValid(id)){
+		return res.status(404).send();
+	}
+
+	if(_.isBoolean(body.completed) && body.completed){
+		body.completedAt = new Date().getTime();
+	}else{
+		body.completed = false;
+		body.completedAt = null;
+	}
+
+
+	Todo.findByIdAndUpdate(id,{$set:body},{new:true}).then((todo)=>{
+		if(!todo){
+			return res.status(404).send();
+		}
+
+		res.send({todo:todo});
+
+	}).catch((e)=>{
+		res.status(400).send();
+	})
+})
 
 app.listen(port,()=>{
 	console.log(`Connected on Port ${port}`);
